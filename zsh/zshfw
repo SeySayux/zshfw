@@ -1,0 +1,41 @@
+
+function zshfw_load_first() {
+    if [[ -f "$ZSHFW_USER_DIR/$1" ]]; then
+        source "$ZSHFW_USER_DIR/$1" 
+    else if [[ -f "$ZSHFW_SYSTEM_DIR/$1" ]]
+        source "$ZSHFW_SYSTEM_DIR/$1"
+    else
+        return 1;
+    fi
+}
+
+function zshfw_load_single_plugin() {
+    zsh_load_first "$1" || echo "zshfw: warning: cannot find plugin '$1'." >&2
+    "$1"_load
+}
+
+function loadplugin() {
+    for x in "$@"; do
+        zshfw_load_single_plugin "$@"
+    done
+}
+
+function loadplugins() {
+    return loadplugin "$@"
+}
+
+function loadtheme() {
+    zsh_load_first "$1" || "zshfw: warning: cannot find theme '$1'." >&2
+}
+
+function unloadplugin() {
+    "$1"_unload
+}
+
+function helpplugin() {
+    "$1"_help
+}
+
+function helptheme() {
+    "$1"_help
+}
