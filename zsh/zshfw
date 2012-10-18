@@ -1,31 +1,42 @@
 
+zshfw_current_theme=''
+
 function zshfw_load_first() {
     if [[ -f "$ZSHFW_USER_DIR/$1" ]]; then
-        source "$ZSHFW_USER_DIR/$1" 
-    else if [[ -f "$ZSHFW_SYSTEM_DIR/$1" ]]
+        source "$ZSHFW_USER_DIR/$1"
+    elif [[ -f "$ZSHFW_SYSTEM_DIR/$1" ]]; then
         source "$ZSHFW_SYSTEM_DIR/$1"
     else
-        return 1;
+        return 1
     fi
 }
 
 function zshfw_load_single_plugin() {
     if [[ -z $(eval echo \${${1}_loaded}) ]]; then
-        zsh_load_first "$1" || \
+        zshfw_load_first "plugins/$1.zsh" || \
             echo "zshfw: warning: cannot find plugin '$1'." >&2
-        "$1"_load
         export ${1}_loaded=1
+    fi
+}
+
+function zshfw_editor() {
+    if [[ -n $EDITOR ]]; then
+        $EDITOR "$@"
+    elif [[ -n $VISUAL ]]; then
+        $VISUAL "$@"
+    else
+        vi "$@"
     fi
 }
 
 function loadplugin() {
     for x in "$@"; do
-        zshfw_load_single_plugin "$@"
+        zshfw_load_single_plugin "$x"
     done
 }
 
 function loadplugins() {
-    return loadplugin "$@"
+    loadplugin "$@"
 }
 
 function loadtheme() {
@@ -33,7 +44,10 @@ function loadtheme() {
         return
     fi
 
-    zsh_load_first "$1" || "zshfw: warning: cannot find theme '$1'." >&2
+    zshfw_load_first "themes/$1.zsh" || \
+        echo "zshfw: warning: cannot find theme '$1'." >&2
+
+    zshfw_current_theme="$1"
 }
 
 function unloadplugin() {
@@ -44,7 +58,7 @@ function unloadplugin() {
     if [[ -n $(eval echo \${${1}_has_unload}) ]]; then
         ${1}_unload
     else
-        echo "zshfw: no unload function for plugin '$1'." > &2
+        echo "zshfw: no unload function for plugin '$1'." >&2
     fi
 }
 
@@ -56,7 +70,7 @@ function helpplugin() {
     if [[ -n $(eval echo \${${1}_has_help}) ]]; then
         ${1}_help
     else
-        echo "zshfw: no help function for plugin '$1'." > &2
+        echo "zshfw: no help function for plugin '$1'." >&2
     fi
 }
 
@@ -68,6 +82,110 @@ function helptheme() {
     if [[ -n $(eval echo \${${1}_has_help}) ]]; then
         eval ${1}_help
     else
-        echo "zshfw: no help function for theme '$1'." > &2
+        echo "zshfw: no help function for theme '$1'." >&2
     fi
 }
+
+function zshfw_editthing() {
+    if [[ -f "$ZSHFW_USER_DIR/${1}s/$2.zsh" ]]; then
+        zshfw_editor "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+    elif [[ -f "$ZSHFW_SYSTEM_DIR/${1}s/$2.zsh" ]]; then
+        echo "zshfw: copying system $1 to user directory...">&2;
+        cp "$ZSHFW_SYSTEM_DIR/${1}s/${2}.zsh" "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+        zshfw_editor "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+    else
+        echo "zshfw: error: cannot find $1 '$2'." >&2
+        return 1
+    fi
+}
+
+function editplugin() {
+    zshfw_editthing "plugin" "$1"
+}
+
+function edittheme() {
+    zshfw_editthing "theme" "$1"
+}
+
+function zshfw_listthings() {
+    echo "User $1:"
+    for x in "$ZSHFW_USER_DIR/$1/"*.zsh; do
+        basename "$x" .zsh
+    done
+
+    if [[ -d "$ZSHFW_SYSTEM_DIR/$1" ]]; then 
+        echo
+        echo "System $1:"
+        for x in "$ZSHFW_SYSTEM_DIR/$1/"*.zsh; do
+            basename "$x" .zsh
+        done
+    fi
+}
+
+function listplugins() {
+    zshfw_listthings "plugins"
+}
+
+function listthemes() {
+    zshfw_listthings "themes"
+}
+
+function zshfw_showtheme() {
+    loadtheme "$1"
+
+    echo "$1:"
+    print -P "$PS1"
+    echo
+}
+
+function showtheme() {
+    theme=$(currenttheme)
+    zshfw_showtheme "$@"
+    loadtheme "$theme"
+}
+
+function showthemes() {
+    theme=$(currenttheme)
+
+    for x in $(listthemes | sed 's/ /@/g'); do
+        if echo "$x" | grep 'themes:$' > /dev/null; then
+            echo "$x" | sed 's/@/ /g'
+            echo
+        elif [[ -n $x ]]; then
+            zshfw_showtheme "$x"
+        fi
+    done
+
+    export IFS="$tmpifs"
+
+    loadtheme "$theme"
+}
+
+function currenttheme() {
+    echo "$zshfw_current_theme"
+}
+
+# These are pretty much always usable, so enable globally.
+
+# Enable extra completion options
+fpath=($HOME/.zsh/func $fpath)
+typeset -U fpath
+
+# Enable autocomplete
+zstyle :compinstall filename "$HOME/.zshrc"
+autoload -Uz compinit
+compinit
+_comp_options+=(globdots)
+
+# Enable auto-correction
+setopt correctall
+
+# Allow typing folder names mean cd
+setopt autocd
+
+# Beep
+setopt beep
+
+# Enable advanced (regex) globbing
+setopt extendedglob
+
