@@ -11,14 +11,6 @@ function zshfw_load_first() {
     fi
 }
 
-function zshfw_load_single_plugin() {
-    if [[ -z $(eval echo \${${1}_loaded}) ]]; then
-        zshfw_load_first "plugins/$1.zsh" || \
-            echo "zshfw: warning: cannot find plugin '$1'." >&2
-        export ${1}_loaded=1
-    fi
-}
-
 function zshfw_editor() {
     if [[ -n $EDITOR ]]; then
         $EDITOR "$@"
@@ -26,6 +18,15 @@ function zshfw_editor() {
         $VISUAL "$@"
     else
         vi "$@"
+    fi
+}
+
+function zshfw_load_single_plugin() {
+    current_plugin="$1"
+    if [[ -z $(eval echo \${${1}_loaded}) ]]; then
+        zshfw_load_first "plugins/$1.zsh" || \
+            echo "zshfw: warning: cannot find plugin '$1'." >&2
+        export ${1}_loaded=1
     fi
 }
 
@@ -164,6 +165,12 @@ function showthemes() {
 function currenttheme() {
     echo "$zshfw_current_theme"
 }
+
+function zshfw_plugin_error() {
+    echo "zshfw: error while loading plugin $1: $2" >&2
+}
+
+alias plugin_error='zshfw_plugin_error $current_plugin'
 
 # These are pretty much always usable, so enable globally.
 
