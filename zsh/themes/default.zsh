@@ -5,15 +5,15 @@ default_has_help=1
 default_help() {
     cat << 'EOF'
 
-    Default - Looks similar to the default bash prompt on a system.
-    Author: Frank Erens <frank@synthi.net>
-    Depends: gitthemes (optional)
-    Known conflicts: None
+    %BDefault%b - Looks similar to the default bash prompt on a system.
+    %BAuthor:%b Frank Erens %U<frank@synthi.net>%u
+    %BDepends:%b gitthemes (optional)
+    %BKnown conflicts:%b None
 
-    Options: 
-        DEFAULT_ENABLE_VCS_INFO         [0]
+    %BOptions:%b 
+        %UDEFAULT_ENABLE_VCS_INFO%u         [0]
                 Enables VCS info (type, branch) on the prompt if in a repo.
-        DEFAULT_ENABLE_GIT_STATUS       [0]
+        %UDEFAULT_ENABLE_GIT_STATUS%u       [0]
                 Shows git status (clean, dirty) on the prompt if in a git
                 repo.
                 Requires the gitthemes plugin.
@@ -88,6 +88,16 @@ winify() {
     fi
 }
 
+get_distro() {
+    if [ -r "/etc/issue" ]; then
+        grep -m1 "^[A-Za-z]" /etc/issue
+    elif which lsb_release > /dev/null 2>&1; then
+        lsb_release -s -a 2>/dev/null | head -n1
+    else
+        echo "Default"
+    fi
+}
+
 case $uname in
 Cygwin*|CYGWIN*)
     # Cygwin
@@ -106,15 +116,16 @@ Darwin)
 Linux|*)
     distro=$(lsb_release -si)
     case $distro in
-    Fedora)
-        # Probably a crapload of other distros as well
+    Ubuntu|Debian)
+        # Debian and derivatives have their own type of prompt
+        export PS1="%n@%m:%~"'$(vcs_info_wrapper)$(default_git_status)'"$usuf "
+        ;;
+    *)
+        # Default to Red Hat/Fedora-like prompt
         export PS1="[%n@%m %c]"'$(vcs_ifno_wrapper)'
         export PS1="$PS1"'$(default_git_status)'"$usuf "
-        ;;
-    Ubuntu|Debian|*)
-        # Default to Debian-like shell.
-        export PS1="%n@%m:%~"'$(vcs_info_wrapper)$(default_git_status)'"$usuf "
         ;;
     esac
     ;;
 esac
+
