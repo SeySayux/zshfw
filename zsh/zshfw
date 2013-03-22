@@ -185,6 +185,8 @@ typeset -U fpath
 
 # Enable autocomplete
 zstyle :compinstall filename "$HOME/.zshrc"
+zstyle ':completion::complete:*' use-cache on
+zstyle ':completion::complete:*' cache-path .zcache
 autoload -Uz compinit
 compinit -u
 _comp_options+=(globdots)
