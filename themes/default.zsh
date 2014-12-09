@@ -55,7 +55,7 @@ else
 fi
 
 if [[ $DEFAULT_ENABLE_GIT_STATUS == 1 ]]; then
-    loadplugin gitthemes
+    zshfw plugin load gitthemes
     ZSH_THEME_GIT_PROMPT_CLEAN=''
     ZSH_THEME_GIT_PROMPT_DIRTY='* '
 

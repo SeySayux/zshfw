@@ -1,0 +1,299 @@
+###############################################################################
+#
+# Author: Frank Erens <frank@synthi.net>
+#
+###############################################################################
+
+# Internal functions {{{1
+
+zshfw_current_theme=''
+
+if [ -n "$ZSHFW_DEBUG" ]; then
+    function zshfw_debug() {
+        echo -e "\033[38;5;242m[zshfw] \033[1mDebug: $@\033[0m" >&2   
+    }
+else 
+    function zshfw_debug() {
+    }
+fi
+
+function zshfw_load_first() {
+    setopt shwordsplit
+    zshfw_debug "Searching for $1"
+
+    local IFS=:
+
+    for p in $ZSHFW_PATH; do
+        zshfw_debug "Searching in $p..."
+        if [[ -f "$p/$1" ]]; then
+            source "$p/$1"
+            return 0
+        fi
+    done
+    return 1
+}
+
+function zshfw_load_single_plugin() {
+    zshfw_debug "Plugin: $1"
+
+    current_plugin="$1"
+    if [[ -z $(eval echo \${${1}_loaded}) ]]; then
+        zshfw_load_first "plugins/$1.zsh" || \
+            echo "zshfw: warning: cannot find plugin '$1'." >&2
+        set ${1}_loaded=1
+    fi
+}
+
+function zshfw_plugin_load() {
+    for x in "$@"; do
+        zshfw_load_single_plugin "$x"
+    done
+}
+
+function zshfw_theme_load() {
+    if [[ -z $1 ]]; then
+        return
+    fi
+
+    zshfw_debug "Theme: $1"
+
+    zshfw_load_first "themes/$1.zsh" || \
+        echo "zshfw: warning: cannot find theme '$1'." >&2
+
+    zshfw_current_theme="$1"
+}
+
+function zshfw_plugin_unload() {
+    if [[ -z $1 ]]; then
+        return;
+    fi
+
+    if [[ -n $(eval echo \${${1}_has_unload}) ]]; then
+        ${1}_unload
+    else
+        echo "zshfw: no unload function for plugin '$1'." >&2
+    fi
+}
+
+function zshfw_thing_help() {
+    print -Pl "$($1)" | less -RFX
+}
+
+function zshfw_plugin_help() {
+    if [[ -z $1 ]]; then
+        return;
+    fi
+
+    if [[ -n $(eval echo \${${1}_has_help}) ]]; then
+        zshfw_thing_help ${1}_help
+    else
+        echo "zshfw: no help function for plugin '$1'." >&2
+    fi
+}
+
+function zshfw_theme_help() {
+    if [[ -z $1 ]]; then
+        return;
+    fi
+
+    if [[ -n $(eval echo \${${1}_has_help}) ]]; then
+        zshfw_thing_help ${1}_help
+    else
+        echo "zshfw: no help function for theme '$1'." >&2
+    fi
+}
+
+function zshfw_editor() {
+    if [[ -n $EDITOR ]]; then
+        $EDITOR "$@"
+    elif [[ -n $VISUAL ]]; then
+        $VISUAL "$@"
+    else
+        vi "$@"
+    fi
+}
+
+# FIXME
+# function zshfw_editthing() {
+#     if [[ -f "$ZSHFW_USER_DIR/${1}s/$2.zsh" ]]; then
+#         zshfw_editor "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+#     elif [[ -f "$ZSHFW_SYSTEM_DIR/${1}s/$2.zsh" ]]; then
+#         echo "zshfw: copying system $1 to user directory...">&2;
+#         cp "$ZSHFW_SYSTEM_DIR/${1}s/${2}.zsh" "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+#         zshfw_editor "$ZSHFW_USER_DIR/${1}s/$2.zsh"
+#     else
+#         echo "zshfw: error: cannot find $1 '$2'." >&2
+#         return 1
+#     fi
+# }
+
+# function editplugin() {
+#     zshfw_editthing "plugin" "$1"
+# }
+
+# function edittheme() {
+#     zshfw_editthing "theme" "$1"
+# }
+
+function zshfw_thing_list() {
+    local IFS=":"
+    for p in "$ZSHFW_PATH"; do
+        echo "$p $1:"
+        for x in "$p/$1/"*.zsh; do
+            basename "$x" .zsh
+        done
+    done
+
+}
+
+function zshfw_plugin_list() {
+    zshfw_thing_list "plugins"
+}
+
+function zshfw_theme_list() {
+    zshfw_theme_list "themes"
+}
+
+function zshfw_theme_show() {
+    loadtheme "$1"
+
+    echo "$1:"
+    print -P "$PS1"
+    echo
+}
+
+function zshfw_theme_showcurrent() {
+    theme=$(zshfw_theme_current)
+    zshfw_showtheme "$@"
+    loadtheme "$theme"
+}
+
+function zshfw_theme_showall() {
+    theme=$(currenttheme)
+
+    for x in $(listthemes | sed 's/ /@/g'); do
+        if echo "$x" | grep 'themes:$' > /dev/null; then
+            echo "$x" | sed 's/@/ /g'
+            echo
+        elif [[ -n $x ]]; then
+            zshfw_showtheme "$x"
+        fi
+    done
+
+    export IFS="$tmpifs"
+
+    loadtheme "$theme"
+}
+
+function zshfw_theme_current() {
+    echo "$zshfw_current_theme"
+}
+
+# API {{{1
+
+function zshfw_plugin_error() {
+    echo "zshfw: error while loading plugin $1: $2" >&2
+}
+
+alias plugin_error='zshfw_plugin_error $current_plugin'
+
+# Main dispatch function {{{1
+
+function zshfw() {
+    case "$1" in
+    plugin)
+        case "$2" in
+        load)
+            shift 2
+            zshfw_plugin_load "$@"
+            ;;
+        unload)
+            shift 2;
+            zshfw_plugin_unload "$@"
+            ;;
+        help)
+            shift 2;
+            zshfw_plugin_help "$@"
+            ;;
+        list)
+            zshfw_plugin_list
+            ;;
+        esac
+        ;;
+    theme)
+        case "$2" in 
+        load)
+            shift 2
+            zshfw_theme_load "$@"
+            ;;
+        help)
+            shift 2;
+            zshfw_theme_help "$@"
+            ;;
+        list)
+            zshfw_theme_list 
+            ;;
+        show)
+            shift 2;
+            zshfw_theme_show "$@"
+            ;;
+        showcurrent)
+            zshfw_theme_showcurrent
+            ;;
+        showall)
+            zshfw_theme_showall
+            ;;
+        current)
+            zshfw_theme_current
+            ;;
+        esac
+        ;;
+    help|--help)
+        ;;
+    esac
+}
+
+# Initialization {{{1
+
+
+# Enable autocomplete
+zshfw_debug 'zstyle :compinstall'
+zstyle :compinstall filename "$HOME/.zshrc"
+zshfw_debug 'zstyle :completion'
+zstyle ':completion::complete:*' use-cache on
+zstyle ':completion::complete:*' cache-path .zcache
+zshfw_debug 'autoload -Uz compinit'
+autoload -Uz compinit
+zshfw_debug 'compinit -u'
+compinit -u
+_comp_options+=(globdots)
+
+# The following features are generally useful and enabled by default
+
+# Enable auto-correction
+setopt correctall
+
+# Allow typing folder names mean cd
+setopt autocd
+
+# Beep
+setopt beep
+
+# Enable advanced (regex) globbing
+setopt extendedglob
+
+# Enable splitting behavior with IFS
+setopt shwordsplit
+
+# Enable extra completion options
+zshfw_debug 'fpath'
+local IFS=':'
+for p in $ZSHFW_PATH; do
+    fpath=($p/func $fpath)
+    typeset -U fpath
+done
+unset IFS
+
+# }}}
+
+# vim: fdm=marker

@@ -1,0 +1,4 @@
+#compdef zshfw
+
+_arguments "1: :(hello)"
+

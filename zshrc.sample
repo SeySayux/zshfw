@@ -1,0 +1,16 @@
+# Example of a zshrc file for zshfw.
+
+# Enable debug output
+# export ZSHFW_DEBUG=1
+
+# Setup search path for zshfw extensions
+export ZSHFW_PATH="$HOME/.zshfw:$HOME/.zsh"
+
+# Load zshfw
+source "$HOME/.zshfw/zshfw"
+
+# Load theme
+zshfw theme load default
+
+# Load plugins
+zshfw plugin load bashlike history zshlocal
